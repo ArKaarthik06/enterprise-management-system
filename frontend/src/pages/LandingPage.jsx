@@ -14,7 +14,7 @@ const LandingPage = () => {
 
   const fetchProducts = async () => {
     try {
-      const res = await axios.get(`http://localhost:5000/api/products?page=${page}&search=${search}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/products?page=${page}&search=${search}`);
       setProducts(res.data.products);
       setTotalPages(res.data.pages);
     } catch (err) {

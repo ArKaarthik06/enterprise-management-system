@@ -2,6 +2,7 @@ const Order = require('../models/Order');
 const Product = require('../../catalog/models/Product');
 const { publishEvent } = require('../../../config/kafka');
 const { redisClient } = require('../../../config/redis');
+const { checkAndFireLowStock } = require('../../inventory/utils/stockLogic');
 
 // @desc    Place a new order
 // @route   POST /api/orders
@@ -17,30 +18,48 @@ exports.placeOrder = async (req, res) => {
       return res.status(400).json({ message: 'Idempotency key is required' });
     }
 
-    // Optional: check if idempotency key was already used in a recent cache (we'll keep it simple and check Order collection or rely on client correctly generating it)
-    // In production, we'd check a fast store like Redis for idempotency key locking.
+    // Create order in 'pending' state first to lock idempotency key
+    let currentOrder;
+    try {
+      currentOrder = await Order.create({
+        buyerId,
+        items: items.map(i => ({ productId: i.productId, quantity: i.quantity, priceAtPurchase: 0 })),
+        deliveryAddress,
+        idempotencyKey,
+        status: 'pending'
+      });
+    } catch (err) {
+      if (err.code === 11000) {
+        // Duplicate key error, idempotency key already used
+        const existingOrder = await Order.findOne({ buyerId, idempotencyKey });
+        return res.status(200).json({ message: 'Order already processed', order: existingOrder });
+      }
+      throw err;
+    }
 
     // Calculate total and prepare items for the order document
     const orderItems = [];
     const successfulDecrements = [];
+    const productsToSaveForLowStock = [];
     let orderFailed = false;
 
     // Day 11: Race-condition handling (Atomic `$inc` updates)
     // 1. For each line item run a single atomic MongoDB update
     for (const item of items) {
-      const product = await Product.findById(item.productId);
-      if (!product) {
+      const productPreCheck = await Product.findById(item.productId);
+      if (!productPreCheck) {
         orderFailed = true;
         break;
       }
 
       // Atomic update
-      const result = await Product.updateOne(
+      const updatedProduct = await Product.findOneAndUpdate(
         { _id: item.productId, stock: { $gte: item.quantity } },
-        { $inc: { stock: -item.quantity } }
+        { $inc: { stock: -item.quantity } },
+        { new: true } // get post-update document
       );
 
-      if (result.modifiedCount === 0) {
+      if (!updatedProduct) {
         // The stock check and decrement failed
         orderFailed = true;
         break;
@@ -53,49 +72,58 @@ exports.placeOrder = async (req, res) => {
       });
 
       orderItems.push({
-        productId: product._id,
+        productId: updatedProduct._id,
         quantity: item.quantity,
-        priceAtPurchase: product.price
+        priceAtPurchase: updatedProduct.price
       });
+
+      // Check if this purchase pushed the product below the low stock threshold
+      const needsSave = await checkAndFireLowStock(updatedProduct);
+      if (needsSave) {
+        productsToSaveForLowStock.push(updatedProduct);
+      }
     }
 
     // 2. Compensating rollback if one fails
     if (orderFailed) {
       for (const decrement of successfulDecrements) {
-        await Product.updateOne(
+        const rolledBackProduct = await Product.findOneAndUpdate(
           { _id: decrement.productId },
-          { $inc: { stock: decrement.quantity } }
+          { $inc: { stock: decrement.quantity } },
+          { new: true }
         );
+        if (rolledBackProduct) {
+          const needsSave = await checkAndFireLowStock(rolledBackProduct);
+          if (needsSave) await rolledBackProduct.save();
+        }
       }
 
       // 3. Branch on outcome: Failure
-      const failedOrder = await Order.create({
-        buyerId,
-        items: orderItems.length > 0 ? orderItems : items.map(i => ({ productId: i.productId, quantity: i.quantity, priceAtPurchase: 0 })), // save what we tried
-        deliveryAddress,
-        status: 'failed',
-        failureReason: 'out_of_stock'
-      });
+      currentOrder.status = 'failed';
+      currentOrder.failureReason = 'out_of_stock';
+      await currentOrder.save();
 
       // publish order.failed to Kafka
-      await publishEvent('order.failed', failedOrder._id, failedOrder);
+      await publishEvent('order.failed', currentOrder._id.toString(), currentOrder);
 
       return res.status(400).json({ 
         message: 'Order failed due to insufficient stock', 
-        orderId: failedOrder._id 
+        orderId: currentOrder._id 
       });
     }
 
+    // Save any products that tripped their low stock threshold during successful purchase
+    for (const p of productsToSaveForLowStock) {
+      await p.save();
+    }
+
     // 3. Branch on outcome: Success
-    const newOrder = await Order.create({
-      buyerId,
-      items: orderItems,
-      deliveryAddress,
-      status: 'confirmed'
-    });
+    currentOrder.items = orderItems;
+    currentOrder.status = 'confirmed';
+    await currentOrder.save();
 
     // publish order.placed to Kafka
-    await publishEvent('order.placed', newOrder._id, newOrder);
+    await publishEvent('order.placed', currentOrder._id.toString(), currentOrder);
 
     // Kafka does not prevent the race condition. The atomic MongoDB update does. 
     // Kafka only fans out the already-safe decision asynchronously.
@@ -112,7 +140,7 @@ exports.placeOrder = async (req, res) => {
       }
     }
     
-    res.status(201).json({ message: 'Order placed successfully', order: newOrder });
+    res.status(201).json({ message: 'Order placed successfully', order: currentOrder });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -122,7 +150,15 @@ exports.placeOrder = async (req, res) => {
 // @route   GET /api/orders
 exports.getMyOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ buyerId: req.user.id }).sort({ createdAt: -1 });
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await Order.updateMany(
+      { buyerId: req.user.id, status: 'confirmed', createdAt: { $lt: oneDayAgo } },
+      { $set: { status: 'delivered' } }
+    );
+
+    const orders = await Order.find({ buyerId: req.user.id })
+      .populate('items.productId', 'name images category')
+      .sort({ createdAt: -1 });
     res.json(orders);
   } catch (error) {
     res.status(500).json({ message: error.message });

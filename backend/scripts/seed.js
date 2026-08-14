@@ -29,7 +29,7 @@ const seedData = async () => {
         email: `owner${i}@market.com`,
         passwordHash: 'password123', 
         role: 'product_owner',
-        status: 'approved'
+        status: 'active'
       });
       owners.push(owner);
     }

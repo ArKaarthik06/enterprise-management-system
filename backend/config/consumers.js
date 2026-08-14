@@ -6,8 +6,8 @@ const User = require('../modules/auth/models/User');
 
 const consumer = kafka.consumer({ groupId: 'enterprise-group' });
 
-// In-memory idempotency check (In production, use Redis or DB for persistence)
-const processedMessages = new Set();
+// In production, use Redis for distributed idempotency
+// The old in-memory set 'processedMessages' has been removed
 
 const connectKafkaConsumers = async () => {
   try {
@@ -26,10 +26,16 @@ const connectKafkaConsumers = async () => {
         const key = message.key?.toString();
         const value = JSON.parse(message.value.toString());
 
-        // Idempotency check
-        if (key && processedMessages.has(`${topic}-${key}`)) {
-          console.log(`Skipping duplicate message ${key} for topic ${topic}`);
-          return;
+        // Redis Idempotency check: SET processed:<topic>:<key> 1 NX EX 86400 (24 hours)
+        if (key && redisClient.isReady) {
+          const redisKey = `processed:${topic}:${key}`;
+          const isNew = await redisClient.set(redisKey, '1', { NX: true, EX: 86400 });
+          if (!isNew) {
+            console.log(`Skipping duplicate message ${key} for topic ${topic}`);
+            return;
+          }
+        } else if (key && !redisClient.isReady) {
+          console.warn(`Redis is not ready, processing message ${key} without idempotency check`);
         }
 
         try {
@@ -53,7 +59,6 @@ const connectKafkaConsumers = async () => {
               await handleReviewCreatedEvent(value);
               break;
           }
-          if (key) processedMessages.add(`${topic}-${key}`);
         } catch (err) {
           console.error(`Error processing message from topic ${topic}:`, err);
           // Dead Letter Queue

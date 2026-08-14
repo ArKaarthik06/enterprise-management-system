@@ -26,6 +26,7 @@ exports.getProducts = async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const search = req.query.search || '';
     const category = req.query.category || 'all';
+    const ownerId = req.query.ownerId || null;
 
     // Skip cache if there's a search query
     const cacheKey = `products:page:${page}:category:${category}`;
@@ -47,6 +48,9 @@ exports.getProducts = async (req, res) => {
     }
     if (category !== 'all') {
       query.category = category;
+    }
+    if (ownerId) {
+      query.ownerId = ownerId;
     }
 
     const count = await Product.countDocuments(query);

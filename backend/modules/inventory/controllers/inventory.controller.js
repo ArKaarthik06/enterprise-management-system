@@ -1,6 +1,7 @@
 const Product = require('../../catalog/models/Product');
 const InventoryLog = require('../models/InventoryLog');
 const { publishEvent } = require('../../../config/kafka');
+const { checkAndFireLowStock } = require('../utils/stockLogic');
 
 // @desc    Update stock for a product
 // @route   POST /api/inventory/:productId
@@ -18,15 +19,8 @@ exports.updateStock = async (req, res) => {
 
     product.stock += change;
 
-    // Reset low stock alert if it was alerted and now stock is above threshold
-    if (product.stock > product.lowStockThreshold) {
-      product.lowStockAlerted = false;
-    } else if (product.stock <= product.lowStockThreshold && !product.lowStockAlerted) {
-      // It just crossed the threshold, fire event
-      product.lowStockAlerted = true;
-      // We will actually emit the event after saving
-      req.fireLowStockEvent = true; 
-    }
+    // Use shared helper for low stock threshold logic
+    const needsSave = await checkAndFireLowStock(product);
 
     await product.save();
 
@@ -35,15 +29,6 @@ exports.updateStock = async (req, res) => {
       change,
       reason
     });
-
-    if (req.fireLowStockEvent) {
-      await publishEvent('inventory.low-stock', product._id, {
-        productId: product._id,
-        productName: product.name,
-        stock: product.stock,
-        ownerId: product.ownerId
-      });
-    }
 
     await publishEvent('inventory.updated', product._id, {
       productId: product._id,

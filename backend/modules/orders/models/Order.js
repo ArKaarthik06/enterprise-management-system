@@ -31,6 +31,10 @@ const orderSchema = new mongoose.Schema({
     type: String,
     default: null,
   },
+  idempotencyKey: {
+    type: String,
+    required: true
+  },
   deliveryAddress: {
     line1: String,
     city: String,
@@ -43,6 +47,8 @@ const orderSchema = new mongoose.Schema({
 // Required indexes
 orderSchema.index({ createdAt: 1 });
 orderSchema.index({ 'deliveryAddress.city': 1 });
+// Create a unique index for idempotency
+orderSchema.index({ buyerId: 1, idempotencyKey: 1 }, { unique: true });
 
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;

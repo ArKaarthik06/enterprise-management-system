@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const Signup = () => {
-  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'customer' });
+  const [formData, setFormData] = useState({ name: '', email: '', password: '', role: 'customer', businessName: '', businessDescription: '' });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const navigate = useNavigate();
@@ -12,7 +12,7 @@ const Signup = () => {
     e.preventDefault();
     setError('');
     try {
-      const res = await axios.post('http://localhost:5000/api/auth/signup', formData);
+      const res = await axios.post(import.meta.env.VITE_API_BASE_URL + '/api/auth/signup', formData);
       if (res.data.user.role === 'product_owner') {
         setSuccess('Account created! Your product_owner account is pending approval by an admin.');
       } else {
@@ -49,6 +49,25 @@ const Signup = () => {
             <option value="product_owner">Product Owner</option>
           </select>
         </div>
+        
+        {formData.role === 'product_owner' && (
+          <>
+            <div className="form-group">
+              <label>Business Name</label>
+              <input type="text" value={formData.businessName} onChange={e => setFormData({...formData, businessName: e.target.value})} required />
+            </div>
+            <div className="form-group">
+              <label>Business Description</label>
+              <textarea 
+                value={formData.businessDescription} 
+                onChange={e => setFormData({...formData, businessDescription: e.target.value})} 
+                required 
+                style={{ width: '100%', padding: '0.75rem', border: '1px solid var(--border)', borderRadius: '8px', minHeight: '80px', resize: 'vertical' }}
+              />
+            </div>
+          </>
+        )}
+
         <button type="submit" className="btn-primary btn-block" style={{ marginTop: '10px', height: '44px' }}>Create your account</button>
       </form>
     </div>

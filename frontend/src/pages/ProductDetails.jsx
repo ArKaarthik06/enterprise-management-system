@@ -21,7 +21,7 @@ const ProductDetails = () => {
   useEffect(() => {
     const fetchProduct = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/products/${id}`);
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/products/${id}`);
         setData(res.data);
       } catch (err) {
         setError('Failed to load product');
@@ -36,7 +36,7 @@ const ProductDetails = () => {
     try {
       const token = localStorage.getItem('token');
       if (!token) return navigate('/login');
-      await axios.post(`http://localhost:5000/api/products/${id}/reviews`, {
+      await axios.post(`${import.meta.env.VITE_API_BASE_URL}/api/products/${id}/reviews`, {
         rating: reviewRating,
         comment: reviewComment
       }, {
@@ -45,7 +45,7 @@ const ProductDetails = () => {
       alert('Review added!');
       setReviewComment('');
       // Refresh
-      const res = await axios.get(`http://localhost:5000/api/products/${id}`);
+      const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/products/${id}`);
       setData(res.data);
     } catch (err) {
       alert(err.response?.data?.message || 'Error adding review');

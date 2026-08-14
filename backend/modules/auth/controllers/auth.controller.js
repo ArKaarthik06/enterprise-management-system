@@ -2,7 +2,11 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
 const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET || 'super_secret_jwt_key_change_in_production', {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    throw new Error('JWT_SECRET environment variable is missing');
+  }
+  return jwt.sign({ id }, secret, {
     expiresIn: '30d',
   });
 };
@@ -11,7 +15,7 @@ const generateToken = (id) => {
 // @route   POST /api/auth/signup
 exports.signup = async (req, res) => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, businessName, businessDescription } = req.body;
 
     if (!['customer', 'product_owner'].includes(role)) {
       return res.status(400).json({ message: 'Invalid role for signup' });
@@ -24,13 +28,20 @@ exports.signup = async (req, res) => {
 
     const status = role === 'product_owner' ? 'pending' : 'active';
 
-    const user = await User.create({
+    const userPayload = {
       name,
       email,
       passwordHash: password, // Will be hashed by pre-save hook
       role,
       status
-    });
+    };
+
+    if (role === 'product_owner') {
+      userPayload.businessName = businessName;
+      userPayload.businessDescription = businessDescription;
+    }
+
+    const user = await User.create(userPayload);
 
     res.status(201).json({
       message: 'Signup successful',
@@ -80,7 +91,7 @@ exports.approveOwner = async (req, res) => {
       return res.status(404).json({ message: 'Product owner not found' });
     }
 
-    owner.status = 'approved';
+    owner.status = 'active';
     await owner.save();
 
     // TODO: Send welcome message to owner using Messaging module later.
@@ -95,7 +106,7 @@ exports.approveOwner = async (req, res) => {
 // @route   GET /api/auth/users
 exports.getUsers = async (req, res) => {
   try {
-    const users = await User.find({}, 'name email role');
+    const users = await User.find({}, 'name email role status businessName businessDescription');
     res.json(users);
   } catch (error) {
     res.status(500).json({ message: error.message });

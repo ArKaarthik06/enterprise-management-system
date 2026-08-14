@@ -32,8 +32,16 @@ const userSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['pending', 'approved', 'active'],
-    default: 'active'
+    enum: ['active', 'pending', 'suspended'],
+    default: 'active',
+  },
+  businessName: {
+    type: String,
+    trim: true
+  },
+  businessDescription: {
+    type: String,
+    trim: true
   }
 }, { timestamps: true });
 

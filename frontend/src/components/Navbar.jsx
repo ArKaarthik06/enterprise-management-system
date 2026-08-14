@@ -32,6 +32,7 @@ const Navbar = () => {
                 <Link to="/cart">🛒 Cart ({cart.length})</Link>
               </>
             )}
+            <Link to="/settings" style={{ marginLeft: '10px' }}>Settings</Link>
             <button className="btn-primary" onClick={handleLogout} style={{ marginLeft: '20px' }}>Logout</button>
           </>
         ) : (

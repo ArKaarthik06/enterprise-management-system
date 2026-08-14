@@ -54,7 +54,7 @@ const CheckoutModal = ({ items, onClose, onSuccess }) => {
 
       // Update default address if they want to save it (optional, we could add a checkbox for this)
       
-      await axios.post('http://localhost:5000/api/orders', {
+      await axios.post(import.meta.env.VITE_API_BASE_URL + '/api/orders', {
         items,
         deliveryAddress: {
           line1: deliveryAddress,

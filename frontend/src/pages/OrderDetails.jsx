@@ -15,7 +15,7 @@ const OrderDetails = () => {
         const token = localStorage.getItem('token');
         if (!token) return navigate('/login');
 
-        const res = await axios.get(`http://localhost:5000/api/orders/${id}`, {
+        const res = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/orders/${id}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setOrder(res.data);
