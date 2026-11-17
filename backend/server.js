@@ -39,7 +39,9 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
-  if (process.env.KAFKA_BROKER) {
+  const kafkaBroker = process.env.KAFKA_BROKER;
+  const isCloudLocalKafka = Boolean(process.env.RENDER && (!kafkaBroker || kafkaBroker.includes('localhost')));
+  if (kafkaBroker && !isCloudLocalKafka) {
     try {
       const { connectKafkaProducer } = require('./config/kafka');
       const { connectKafkaConsumers } = require('./config/consumers');
@@ -49,6 +51,6 @@ app.listen(PORT, '0.0.0.0', async () => {
       console.warn('Kafka connection warning:', err.message);
     }
   } else {
-    console.log('KAFKA_BROKER not set; running in cloud mode without Kafka.');
+    console.log('Kafka disabled or set to localhost in cloud; running in cloud standalone mode.');
   }
 });
