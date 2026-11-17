@@ -14,7 +14,9 @@ app.use(passport.initialize());
 
 // Health check endpoints
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const state = states[require('mongoose').connection.readyState] || 'unknown';
+  res.json({ status: 'ok', database: state });
 });
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Enterprise Marketplace Backend API is live' });
