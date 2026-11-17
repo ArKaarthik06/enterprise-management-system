@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const { authorize } = require('../../auth/middleware/rbac');
-const { getAnalytics, getAiSummary, getOrdersTable } = require('../controllers/analytics.controller');
+const { getAnalytics, getAiSummary, getOrdersTable, getSentimentReport } = require('../controllers/analytics.controller');
 
 const requireAuth = passport.authenticate('jwt', { session: false });
 
@@ -17,6 +17,10 @@ router.route('/')
 router.route('/ai-summary')
   .get(requireAuth, authorize('analytics:view:global'), getAiSummary);
 
+// @route   GET /api/analytics/sentiment-report (root_admin only)
+router.route('/sentiment-report')
+  .get(requireAuth, authorize('analytics:view:global'), getSentimentReport);
+
 router.route('/orders')
   .get(requireAuth, (req, res, next) => {
     if (req.user.role === 'root_admin' || req.user.role === 'product_owner') {
@@ -26,3 +30,4 @@ router.route('/orders')
   }, getOrdersTable);
 
 module.exports = router;
+

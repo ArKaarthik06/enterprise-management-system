@@ -36,7 +36,9 @@ const Dashboard = () => {
   const [lowStock, setLowStock] = useState([]);
   const [analytics, setAnalytics] = useState(null);
   const [aiSummary, setAiSummary] = useState('');
-  const [activeTab, setActiveTab] = useState('analytics'); // analytics, table, ai
+  const [sentimentReport, setSentimentReport] = useState(null); // { summary, negativeProducts }
+  const [sentimentLoading, setSentimentLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('analytics'); // analytics, table, ai, sentiment, approval
   const [lastPoll, setLastPoll] = useState(new Date().toISOString());
 
   // Analytics Filters
@@ -164,6 +166,18 @@ const Dashboard = () => {
     }
   };
 
+  const fetchSentimentReport = async () => {
+    setSentimentLoading(true);
+    try {
+      const res = await axios.get(import.meta.env.VITE_API_BASE_URL + '/api/analytics/sentiment-report', getHeaders());
+      setSentimentReport(res.data);
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to generate sentiment report');
+    } finally {
+      setSentimentLoading(false);
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -216,6 +230,7 @@ const Dashboard = () => {
           {user?.role === 'root_admin' && (
             <>
               <button style={tabStyle(activeTab === 'ai')} onClick={() => setActiveTab('ai')}>AI Analytics</button>
+              <button style={tabStyle(activeTab === 'sentiment')} onClick={() => setActiveTab('sentiment')}>Sentiment Analysis</button>
               <button style={tabStyle(activeTab === 'approval')} onClick={() => setActiveTab('approval')}>Pending Approvals</button>
             </>
           )}
@@ -404,6 +419,97 @@ const Dashboard = () => {
             <div>
               <h3>AI Summary</h3>
               <p style={{ lineHeight: '1.6' }}>{aiSummary || 'Loading AI summary...'}</p>
+            </div>
+          )}
+
+          {activeTab === 'sentiment' && user?.role === 'root_admin' && (
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0 }}>Review Sentiment Analysis</h3>
+                <button
+                  className="btn-primary"
+                  onClick={fetchSentimentReport}
+                  disabled={sentimentLoading}
+                  style={{ minWidth: '160px' }}
+                >
+                  {sentimentLoading ? 'Analyzing...' : '🔍 Generate Report'}
+                </button>
+              </div>
+
+              {sentimentLoading && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                  <p style={{ fontSize: '1.1rem' }}>Analyzing all product reviews with AI...</p>
+                  <p style={{ fontSize: '0.9rem' }}>This may take a few seconds.</p>
+                </div>
+              )}
+
+              {sentimentReport && !sentimentLoading && (
+                <div>
+                  {/* Overall summary */}
+                  <div style={{ padding: '15px', backgroundColor: '#f0f9ff', borderLeft: '4px solid #3b82f6', borderRadius: '4px', marginBottom: '20px' }}>
+                    <strong>Overall Summary:</strong>
+                    <p style={{ margin: '8px 0 0 0', lineHeight: '1.6' }}>{sentimentReport.summary}</p>
+                  </div>
+
+                  {/* Flagged products */}
+                  <h4 style={{ marginBottom: '10px' }}>
+                    ⚠️ Flagged Products ({sentimentReport.negativeProducts?.length || 0})
+                  </h4>
+
+                  {(!sentimentReport.negativeProducts || sentimentReport.negativeProducts.length === 0) ? (
+                    <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f0fdf4', borderRadius: '8px', color: '#166534' }}>
+                      ✅ No products flagged with negative sentiment. All products are performing well!
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse' }}>
+                      <thead>
+                        <tr style={{ borderBottom: '2px solid var(--border-color)', backgroundColor: '#fef2f2' }}>
+                          <th style={{ padding: '12px' }}>Product</th>
+                          <th style={{ padding: '12px' }}>Category</th>
+                          <th style={{ padding: '12px' }}>Avg Rating</th>
+                          <th style={{ padding: '12px' }}>Reviews</th>
+                          <th style={{ padding: '12px' }}>Reason Flagged</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sentimentReport.negativeProducts.map((p, idx) => (
+                          <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '12px', fontWeight: 'bold' }}>{p.productName}</td>
+                            <td style={{ padding: '12px' }}>
+                              <span style={{ padding: '2px 8px', backgroundColor: '#f1f5f9', borderRadius: '12px', fontSize: '0.85rem' }}>
+                                {p.category}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px' }}>
+                              <span style={{
+                                padding: '4px 10px',
+                                borderRadius: '12px',
+                                fontSize: '0.85rem',
+                                fontWeight: 'bold',
+                                backgroundColor: p.avgRating < 2 ? '#fee2e2' : p.avgRating < 3 ? '#fef3c7' : '#fef9c3',
+                                color: p.avgRating < 2 ? '#991b1b' : p.avgRating < 3 ? '#92400e' : '#854d0e'
+                              }}>
+                                {'★'.repeat(Math.round(p.avgRating))}{'☆'.repeat(5 - Math.round(p.avgRating))} {p.avgRating}
+                              </span>
+                            </td>
+                            <td style={{ padding: '12px' }}>{p.reviewCount}</td>
+                            <td style={{ padding: '12px', fontSize: '0.9rem', color: '#dc2626', maxWidth: '300px' }}>
+                              {p.reason}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {!sentimentReport && !sentimentLoading && (
+                <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                  <p>Click <strong>"Generate Report"</strong> to analyze all product reviews using AI.</p>
+                  <p style={{ fontSize: '0.9rem' }}>The report will flag products with negative or mixed sentiment.</p>
+                </div>
+              )}
             </div>
           )}
 

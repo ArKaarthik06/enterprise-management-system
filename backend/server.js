@@ -19,6 +19,7 @@ app.use('/api/inventory', require('./modules/inventory/routes/inventory.routes')
 app.use('/api/orders', require('./modules/orders/routes/order.routes'));
 app.use('/api/messaging', require('./modules/messaging/routes/messaging.routes'));
 app.use('/api/analytics', require('./modules/analytics/routes/analytics.routes'));
+app.use('/api/ai', require('./modules/ai/routes/ai.routes')); // AI layer: RAG + MCP + guardrails
 
 // Polling endpoint lives in messaging controller for convenience
 const { pollUpdates } = require('./modules/messaging/controllers/messaging.controller');

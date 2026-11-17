@@ -35,3 +35,7 @@ To test the race condition logic for the last unit in stock:
 4. Run `node backend/scripts/race-test.js`.
 
 You will observe 3 concurrent requests firing at the exact same time. The atomic MongoDB update (`$inc` with `$gte` stock condition) ensures that only one request will succeed, and the other two will cleanly fail with an "out_of_stock" failure reason, without double-selling the item.
+
+## AI Assistant (RAG + MCP + Guardrails)
+
+A role-aware AI assistant is built on top of the platform: policy Q&A with RAG, database tools through MCP (including order placement with human confirmation), prompt-injection defence, PII masking and prompt caching. See [backend/modules/ai/README.md](backend/modules/ai/README.md) for the architecture, setup (`LLM_API_KEY`, `npm run ai:ingest`) and example prompts. Run its tests with `cd backend && npm run ai:test`.

@@ -11,6 +11,8 @@ import Settings from './pages/Settings';
 import Cart from './pages/Cart';
 import MyOrders from './pages/MyOrders';
 import OrderDetails from './pages/OrderDetails';
+import AiAudit from './pages/AiAudit';
+import AiChat from './components/AiChat';
 import { CartProvider } from './context/CartContext';
 
 function App() {
@@ -30,8 +32,10 @@ function App() {
             <Route path="/dashboard/*" element={<Dashboard />} />
             <Route path="/products" element={<ProductManagement />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/ai-audit" element={<AiAudit />} />
           </Routes>
         </div>
+        <AiChat />
       </Router>
     </CartProvider>
   );

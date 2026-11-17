@@ -1,5 +1,6 @@
 const Order = require('../../orders/models/Order');
 const Product = require('../../catalog/models/Product');
+const Review = require('../../catalog/models/Review');
 const { redisClient } = require('../../../config/redis');
 
 const getSalesData = async (req) => {
@@ -240,6 +241,113 @@ exports.getOrdersTable = async (req, res) => {
     });
 
     res.json({ orders, total, page, pages: Math.ceil(total / limit) });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get sentiment analysis report for all product reviews (root_admin only)
+// @route   GET /api/analytics/sentiment-report
+exports.getSentimentReport = async (req, res) => {
+  try {
+    // Aggregate all reviews grouped by product
+    const reviewsByProduct = await Review.aggregate([
+      {
+        $group: {
+          _id: '$productId',
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 },
+          comments: { $push: { rating: '$rating', comment: '$comment' } }
+        }
+      },
+      {
+        $lookup: {
+          from: 'products',
+          localField: '_id',
+          foreignField: '_id',
+          as: 'product'
+        }
+      },
+      { $unwind: '$product' },
+      {
+        $project: {
+          productId: '$_id',
+          productName: '$product.name',
+          category: '$product.category',
+          avgRating: 1,
+          reviewCount: 1,
+          // Only send the comment text + rating to the LLM; omit user IDs for privacy
+          comments: 1
+        }
+      },
+      // Only include products that have at least one review
+      { $match: { reviewCount: { $gte: 1 } } },
+      { $sort: { avgRating: 1 } } // worst-rated first
+    ]);
+
+    if (reviewsByProduct.length === 0) {
+      return res.json({
+        summary: 'No product reviews found yet.',
+        negativeProducts: []
+      });
+    }
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.json({
+        summary: 'Gemini API key not configured. Please add GEMINI_API_KEY to your .env file.',
+        negativeProducts: []
+      });
+    }
+
+    // Build a compact, privacy-safe payload for the LLM — only product name, avg rating, and comment texts
+    const reviewPayload = reviewsByProduct.map(p => ({
+      productName: p.productName,
+      category: p.category,
+      avgRating: Math.round(p.avgRating * 10) / 10,
+      reviewCount: p.reviewCount,
+      comments: p.comments.map(c => `[${c.rating}★] ${c.comment || '(no text)'}`)
+    }));
+
+    const prompt = `You are an e-commerce quality analyst. Analyze the following product review data and return a JSON object with two keys:
+1. "summary": a concise 2-3 sentence overall summary of product sentiment across the platform.
+2. "negativeProducts": an array of objects for products that have NEGATIVE or MIXED sentiment (avg rating below 3.5 OR consistently negative comment themes). Each object must have: { "productName": string, "category": string, "avgRating": number, "reviewCount": number, "reason": string (1-2 sentences explaining why it is flagged) }.
+
+Return ONLY valid JSON, no markdown, no explanation outside the JSON.
+
+Review data: ${JSON.stringify(reviewPayload)}`;
+
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+      }
+    );
+
+    const result = await response.json();
+    const rawText = result.candidates?.[0]?.content?.parts?.[0]?.text || '';
+
+    // Strip any accidental markdown fencing before parsing
+    const cleaned = rawText.replace(/```json|```/g, '').trim();
+
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // If parsing fails, return the raw text so the admin can still see it
+      return res.json({
+        summary: rawText,
+        negativeProducts: [],
+        parseError: true
+      });
+    }
+
+    res.json({
+      summary: parsed.summary || '',
+      negativeProducts: parsed.negativeProducts || []
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

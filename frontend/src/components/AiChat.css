@@ -1,0 +1,82 @@
+/* Styles for the AI chat widget. Uses the colour variables from index.css. */
+.ai-fab {
+  position: fixed; right: 24px; bottom: 24px; z-index: 1500;
+  background: var(--accent); color: #fff; border: none; border-radius: 999px;
+  padding: 14px 22px; font-weight: 600; font-size: 15px; cursor: pointer;
+  box-shadow: var(--shadow-lg); transition: var(--transition);
+}
+.ai-fab:hover { background: var(--accent-hover); transform: translateY(-2px); }
+
+.ai-panel {
+  position: fixed; right: 24px; bottom: 24px; z-index: 1500;
+  width: 400px; max-width: calc(100vw - 32px); height: 600px; max-height: calc(100vh - 110px);
+  display: flex; flex-direction: column;
+  background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg); overflow: hidden;
+}
+.ai-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px; background: var(--accent); color: #fff;
+}
+.ai-header strong { display: block; font-size: 15px; }
+.ai-header small { opacity: 0.85; text-transform: capitalize; }
+.ai-icon-btn {
+  background: rgba(255,255,255,0.18); color: #fff; border: none; border-radius: 6px;
+  padding: 4px 10px; margin-left: 6px; cursor: pointer; font-size: 13px;
+}
+.ai-icon-btn:hover { background: rgba(255,255,255,0.3); }
+
+.ai-messages { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-primary); }
+.ai-welcome p { color: var(--text-secondary); margin-bottom: 10px; font-size: 14px; }
+.ai-chips { display: flex; flex-direction: column; gap: 8px; }
+.ai-chips button {
+  text-align: left; background: var(--bg-secondary); border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm); padding: 9px 12px; cursor: pointer; font-size: 13px; color: var(--text-primary);
+}
+.ai-chips button:hover { border-color: var(--accent); color: var(--accent); }
+
+.ai-msg { max-width: 88%; padding: 10px 12px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+.ai-text { white-space: pre-wrap; word-wrap: break-word; }
+.ai-user { align-self: flex-end; background: var(--accent); color: #fff; border-bottom-right-radius: 3px; }
+.ai-assistant { align-self: flex-start; background: var(--bg-secondary); border: 1px solid var(--border-color); border-bottom-left-radius: 3px; }
+.ai-blocked { align-self: flex-start; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+.ai-error { align-self: flex-start; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+.ai-tag { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 4px; }
+
+.ai-meta { font-size: 12px; color: var(--text-muted); margin-top: 6px; }
+.ai-sources { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.ai-sources span { font-size: 11px; background: #eef2ff; color: var(--accent); border-radius: 999px; padding: 2px 8px; }
+.ai-status { align-self: flex-start; font-size: 13px; color: var(--text-muted); font-style: italic; }
+.ai-notice { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 8px 10px; border-radius: var(--radius-sm); font-size: 13px; }
+.ai-notice code { background: rgba(0,0,0,0.06); padding: 1px 4px; border-radius: 4px; }
+
+.ai-action { margin-top: 10px; padding: 10px; border-radius: var(--radius-sm); background: #f8fafc; border: 1px dashed var(--accent); font-size: 13px; }
+.ai-action-title { font-weight: 700; color: var(--accent); margin-bottom: 4px; }
+.ai-action-buttons { display: flex; gap: 8px; margin-top: 8px; }
+.ai-action-buttons button { padding: 6px 14px; font-size: 13px; }
+.ai-result-ok { color: #047857; margin-top: 6px; font-weight: 600; }
+.ai-result-bad { color: #b91c1c; margin-top: 6px; }
+
+.ai-input { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border-color); background: var(--bg-secondary); }
+.ai-input input { flex: 1; padding: 10px 12px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); font-size: 14px; font-family: inherit; }
+.ai-input input:focus { outline: 2px solid var(--accent-glow); border-color: var(--accent); }
+.ai-footer { text-align: center; font-size: 11px; color: var(--text-muted); padding: 0 8px 8px; background: var(--bg-secondary); }
+
+/* ---------- Admin AI audit page ---------- */
+.aiaudit h1 { margin: 24px 0 4px; }
+.aiaudit-sub { color: var(--text-secondary); margin-bottom: 18px; }
+.aiaudit-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.aiaudit-stat { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
+.aiaudit-stat b { display: block; font-size: 26px; }
+.aiaudit-stat span { color: var(--text-secondary); font-size: 13px; }
+.aiaudit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 22px; }
+.aiaudit-card { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px; }
+.aiaudit-card h3 { font-size: 15px; margin-bottom: 10px; }
+.aiaudit-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
+.aiaudit-row .bar { height: 8px; background: var(--accent); border-radius: 4px; }
+.aiaudit-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; }
+.aiaudit-table th, .aiaudit-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+.aiaudit-table th { background: #f1f5f9; }
+.pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+.pill-ok { background: #d1fae5; color: #047857; }
+.pill-bad { background: #fee2e2; color: #b91c1c; }

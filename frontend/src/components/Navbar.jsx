@@ -26,6 +26,7 @@ const Navbar = () => {
             {(user.role === 'root_admin' || user.role === 'product_owner') && (
               <Link to="/dashboard">Dashboard</Link>
             )}
+            {user.role === 'root_admin' && <Link to="/ai-audit">AI Audit</Link>}
             {user.role === 'customer' && (
               <>
                 <Link to="/orders">My Orders</Link>
