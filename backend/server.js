@@ -12,6 +12,14 @@ connectDB();
 const passport = require('./config/passport');
 app.use(passport.initialize());
 
+// Health check endpoints
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+app.get('/', (req, res) => {
+  res.json({ status: 'ok', message: 'Enterprise Marketplace Backend API is live' });
+});
+
 // Routes
 app.use('/api/auth', require('./modules/auth/routes/auth.routes'));
 app.use('/api/products', require('./modules/catalog/routes/product.routes'));
@@ -25,18 +33,20 @@ app.use('/api/ai', require('./modules/ai/routes/ai.routes')); // AI layer: RAG +
 const { pollUpdates } = require('./modules/messaging/controllers/messaging.controller');
 app.get('/api/dashboard/updates', passport.authenticate('jwt', { session: false }), pollUpdates);
 
-const { connectKafkaProducer } = require('./config/kafka');
-const { connectKafkaConsumers } = require('./config/consumers');
-
 const PORT = process.env.PORT || 5000;
 
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-app.listen(PORT, async () => {
+app.listen(PORT, '0.0.0.0', async () => {
   console.log(`Server running on port ${PORT}`);
-  // Start Kafka
-  await connectKafkaProducer();
-  await connectKafkaConsumers();
+  if (process.env.KAFKA_BROKER) {
+    try {
+      const { connectKafkaProducer } = require('./config/kafka');
+      const { connectKafkaConsumers } = require('./config/consumers');
+      await connectKafkaProducer();
+      await connectKafkaConsumers();
+    } catch (err) {
+      console.warn('Kafka connection warning:', err.message);
+    }
+  } else {
+    console.log('KAFKA_BROKER not set; running in cloud mode without Kafka.');
+  }
 });
