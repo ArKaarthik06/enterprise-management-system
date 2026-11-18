@@ -64,7 +64,22 @@
 
 /* ---------- Admin AI audit page ---------- */
 .aiaudit h1 { margin: 24px 0 4px; }
-.aiaudit-sub { color: var(--text-secondary); margin-bottom: 18px; }
+.aiaudit-sub {
+  color: var(--text-secondary);
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+.aiaudit-sub select {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-family: inherit;
+  font-size: 0.9rem;
+}
 .aiaudit-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin-bottom: 22px; }
 .aiaudit-stat { background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow-sm); }
 .aiaudit-stat b { display: block; font-size: 26px; }
@@ -74,9 +89,44 @@
 .aiaudit-card h3 { font-size: 15px; margin-bottom: 10px; }
 .aiaudit-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 6px; }
 .aiaudit-row .bar { height: 8px; background: var(--accent); border-radius: 4px; }
-.aiaudit-table { width: 100%; border-collapse: collapse; font-size: 13px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; }
+.aiaudit-table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 13px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; }
 .aiaudit-table th, .aiaudit-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid var(--border-color); vertical-align: top; }
 .aiaudit-table th { background: #f1f5f9; }
 .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
 .pill-ok { background: #d1fae5; color: #047857; }
 .pill-bad { background: #fee2e2; color: #b91c1c; }
+
+@media (max-width: 640px) {
+  .ai-fab {
+    right: 14px;
+    bottom: 14px;
+    padding: 12px 18px;
+    font-size: 14px;
+  }
+  .ai-panel {
+    right: 10px;
+    left: 10px;
+    bottom: 10px;
+    width: auto;
+    max-width: none;
+    height: calc(100dvh - 80px);
+    max-height: calc(100vh - 80px);
+  }
+  .aiaudit h1 {
+    margin: 8px 0 6px;
+    font-size: 1.45rem;
+  }
+  .aiaudit-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+  .aiaudit-stat {
+    padding: 12px;
+  }
+  .aiaudit-stat b {
+    font-size: 20px;
+  }
+  .aiaudit-grid {
+    grid-template-columns: 1fr;
+  }
+}
