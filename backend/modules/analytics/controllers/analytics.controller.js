@@ -96,6 +96,7 @@ exports.getAnalytics = async (req, res) => {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
+          res.setHeader('X-Cache', 'HIT');
           return res.json(JSON.parse(cached));
         }
       } catch (err) {
@@ -113,18 +114,37 @@ exports.getAnalytics = async (req, res) => {
       }
     }
 
+    res.setHeader('X-Cache', 'MISS');
     res.json(data);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get AI generated summary of analytics
+// @desc    Get AI generated summary of analytics (Cached in Redis for 5 minutes)
 // @route   GET /api/analytics/ai-summary
 exports.getAiSummary = async (req, res) => {
   try {
     if (req.user.role !== 'root_admin') {
       return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const { startDate, endDate, category, interval } = req.query;
+
+    // Cache key for AI summary incorporating current query filters
+    const cacheKey = `analytics:ai-summary:${startDate || 'all'}:${endDate || 'all'}:${category || 'all'}:${interval || 'day'}`;
+
+    // 1. Check if AI summary is already cached in Redis
+    if (redisClient.isReady) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          res.setHeader('X-Cache', 'HIT');
+          return res.json(JSON.parse(cached));
+        }
+      } catch (err) {
+        console.error('Redis read error for AI summary:', err);
+      }
     }
 
     const data = await getSalesData(req);
@@ -148,7 +168,19 @@ exports.getAiSummary = async (req, res) => {
     const result = await response.json();
     const summary = result.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to generate summary from AI response.';
 
-    res.json({ summary });
+    const responsePayload = { summary };
+
+    // 2. Cache in Redis for 5 minutes (300 seconds) if successfully generated
+    if (redisClient.isReady && summary && !summary.includes('Failed to generate')) {
+      try {
+        await redisClient.setEx(cacheKey, 300, JSON.stringify(responsePayload));
+      } catch (err) {
+        console.error('Redis write error for AI summary:', err);
+      }
+    }
+
+    res.setHeader('X-Cache', 'MISS');
+    res.json(responsePayload);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
