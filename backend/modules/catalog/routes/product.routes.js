@@ -5,6 +5,7 @@ const { authorize, isOwner } = require('../../auth/middleware/rbac');
 const {
   getProducts,
   getProductById,
+  getCategories,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -13,6 +14,8 @@ const {
 } = require('../controllers/product.controller');
 
 const requireAuth = passport.authenticate('jwt', { session: false });
+
+router.get('/categories', getCategories);
 
 router.route('/')
   .get(getProducts)

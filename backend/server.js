@@ -9,6 +9,9 @@ app.use(express.json());
 const connectDB = require('./config/db');
 connectDB();
 
+const { connectRedis } = require('./config/redis');
+connectRedis();
+
 const passport = require('./config/passport');
 app.use(passport.initialize());
 

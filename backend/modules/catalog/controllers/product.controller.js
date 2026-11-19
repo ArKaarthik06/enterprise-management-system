@@ -2,40 +2,76 @@ const Product = require('../models/Product');
 const Review = require('../models/Review');
 const { redisClient } = require('../../../config/redis');
 
-// Helper to invalidate product cache
-const invalidateProductCache = async (category) => {
+// Helper to invalidate product cache (purges all product list and category keys)
+const invalidateProductCache = async () => {
   try {
     if (!redisClient.isReady) return;
-    const keys = await redisClient.keys(`products:page:*:category:${category}`);
-    const allKeys = await redisClient.keys(`products:page:*:category:all`);
-    
-    const keysToDelete = [...keys, ...allKeys];
-    if (keysToDelete.length > 0) {
-      await redisClient.del(keysToDelete);
+    const keys = await redisClient.keys('products:*');
+    if (keys && keys.length > 0) {
+      await redisClient.del(keys);
     }
   } catch (err) {
     console.error('Redis cache invalidation error:', err);
   }
 };
 
-// @desc    Get all products (paginated, searchable)
-// @route   GET /api/products
-exports.getProducts = async (req, res) => {
+// @desc    Get all product categories (cached in Redis)
+// @route   GET /api/products/categories
+exports.getCategories = async (req, res) => {
   try {
-    const pageSize = parseInt(req.query.pageSize) || 10;
-    const page = parseInt(req.query.page) || 1;
-    const search = req.query.search || '';
-    const category = req.query.category || 'all';
-    const ownerId = req.query.ownerId || null;
-
-    // Skip cache if there's a search query
-    const cacheKey = `products:page:${page}:category:${category}`;
-    
-    if (!search && redisClient.isReady) {
+    const cacheKey = 'products:categories';
+    if (redisClient.isReady) {
       try {
         const cached = await redisClient.get(cacheKey);
         if (cached) {
+          res.setHeader('X-Cache', 'HIT');
           return res.json(JSON.parse(cached));
+        }
+      } catch (err) {
+        console.error('Redis read error for categories:', err);
+      }
+    }
+
+    const categories = await Product.distinct('category');
+    const sorted = categories.filter(Boolean).sort();
+
+    if (redisClient.isReady) {
+      try {
+        // Cache categories for 10 minutes (600s)
+        await redisClient.setEx(cacheKey, 600, JSON.stringify(sorted));
+      } catch (err) {
+        console.error('Redis write error for categories:', err);
+      }
+    }
+
+    res.setHeader('X-Cache', 'MISS');
+    res.json(sorted);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// @desc    Get all products (paginated, searchable, filtered, cached in Redis)
+// @route   GET /api/products
+exports.getProducts = async (req, res) => {
+  try {
+    const pageSize = Math.min(Math.max(parseInt(req.query.pageSize) || 8, 1), 100);
+    const page = Math.max(parseInt(req.query.page) || 1, 1);
+    const search = (req.query.search || '').trim();
+    const category = (req.query.category || 'all').trim();
+    const ownerId = req.query.ownerId || null;
+
+    // Cache key incorporates page, pageSize, and category
+    const cacheKey = `products:page:${page}:size:${pageSize}:category:${category}`;
+    const canUseCache = !search && !ownerId && redisClient.isReady;
+
+    if (canUseCache) {
+      try {
+        const cached = await redisClient.get(cacheKey);
+        if (cached) {
+          res.setHeader('X-Cache', 'HIT');
+          const data = JSON.parse(cached);
+          return res.json({ ...data, fromCache: true });
         }
       } catch (err) {
         console.error('Redis read error:', err);
@@ -46,7 +82,7 @@ exports.getProducts = async (req, res) => {
     if (search) {
       query.name = { $regex: search, $options: 'i' };
     }
-    if (category !== 'all') {
+    if (category && category !== 'all') {
       query.category = category;
     }
     if (ownerId) {
@@ -62,19 +98,22 @@ exports.getProducts = async (req, res) => {
     const responseData = {
       products,
       page,
-      pages: Math.ceil(count / pageSize),
-      total: count
+      pageSize,
+      pages: Math.ceil(count / pageSize) || 1,
+      total: count,
+      fromCache: false
     };
 
-    if (!search && redisClient.isReady) {
+    if (canUseCache) {
       try {
-        // Cache for 60 seconds
-        await redisClient.setEx(cacheKey, 60, JSON.stringify(responseData));
+        // Cache for 120 seconds in Redis
+        await redisClient.setEx(cacheKey, 120, JSON.stringify(responseData));
       } catch (err) {
         console.error('Redis write error:', err);
       }
     }
 
+    res.setHeader('X-Cache', 'MISS');
     res.json(responseData);
   } catch (error) {
     res.status(500).json({ message: error.message });

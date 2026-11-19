@@ -6,33 +6,41 @@ const shouldDisableRedis = Boolean(process.env.RENDER && isLocalhostRedis);
 let redisClient = { isReady: false };
 
 if (!shouldDisableRedis) {
-  redisClient = createClient({
-    url: process.env.REDIS_URL || 'redis://localhost:6379',
-    socket: {
-      reconnectStrategy: (retries) => {
-        if (retries > 2) return false; // Stop retrying after 2 attempts
-        return 500;
+  try {
+    redisClient = createClient({
+      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      socket: {
+        reconnectStrategy: (retries) => {
+          if (retries > 2) return false; // Stop retrying after 2 attempts
+          return 500;
+        }
       }
-    }
-  });
+    });
 
-  redisClient.on('error', (err) => {
-    if (redisClient.isReady) {
-      console.warn('Redis Client Error:', err.message);
-    }
-  });
+    redisClient.on('error', (err) => {
+      if (redisClient.isReady) {
+        console.warn('Redis Client Warning:', err.message);
+      }
+    });
 
-  redisClient.on('connect', () => {
-    console.log('Redis connected successfully');
-  });
+    redisClient.on('connect', () => {
+      console.log('✓ Redis connected successfully');
+    });
+  } catch (err) {
+    console.warn('Redis initialization error:', err.message);
+    redisClient = { isReady: false };
+  }
 }
 
 const connectRedis = async () => {
-  if (shouldDisableRedis || !redisClient.connect) return;
+  if (shouldDisableRedis || !redisClient.connect) {
+    console.log('ℹ Redis disabled or localhost in cloud; running in database-direct mode.');
+    return;
+  }
   try {
     await redisClient.connect();
   } catch (err) {
-    // Graceful degradation
+    console.warn('ℹ Redis connection unavailable (graceful degradation):', err.message);
   }
 };
 
