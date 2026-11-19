@@ -1,14 +1,22 @@
 const { createClient } = require('redis');
 
-const isLocalhostRedis = !process.env.REDIS_URL || process.env.REDIS_URL.includes('localhost');
-const shouldDisableRedis = Boolean(process.env.RENDER && isLocalhostRedis);
+let rawUrl = (process.env.REDIS_URL || '').trim().replace(/^["']|["']$/g, '');
+if (rawUrl.startsWith('redis-cli -u ')) {
+  rawUrl = rawUrl.replace('redis-cli -u ', '').trim();
+}
+
+const isHttps = rawUrl.startsWith('https://') || rawUrl.startsWith('http://');
+const isLocalhostRedis = !rawUrl || rawUrl.includes('localhost');
+const shouldDisableRedis = Boolean(process.env.RENDER && isLocalhostRedis) || isHttps;
 
 let redisClient = { isReady: false };
 
-if (!shouldDisableRedis) {
+if (isHttps) {
+  console.warn('⚠️ REDIS_URL starts with "https://". Upstash REST API URLs cannot be used with Node-Redis. Please use the "rediss://" connection string (found in the ioredis / Node.js tab in Upstash).');
+} else if (!shouldDisableRedis) {
   try {
     redisClient = createClient({
-      url: process.env.REDIS_URL || 'redis://localhost:6379',
+      url: rawUrl || 'redis://localhost:6379',
       socket: {
         reconnectStrategy: (retries) => {
           if (retries > 2) return false; // Stop retrying after 2 attempts
@@ -34,7 +42,7 @@ if (!shouldDisableRedis) {
 
 const connectRedis = async () => {
   if (shouldDisableRedis || !redisClient.connect) {
-    console.log('ℹ Redis disabled or localhost in cloud; running in database-direct mode.');
+    console.log('ℹ Redis disabled, invalid protocol, or localhost in cloud; running in database-direct mode.');
     return;
   }
   try {
